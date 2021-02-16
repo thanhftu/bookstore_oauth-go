@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -9,7 +10,7 @@ import (
 	"time"
 
 	"github.com/federicoleon/golang-restclient/rest"
-	"github.com/thanhftu/bookstore_oauth-go/oauth/errors"
+	"github.com/thanhftu/bookstore_utils-go/resterrors"
 )
 
 const (
@@ -72,7 +73,7 @@ func GetClientID(request *http.Request) int64 {
 }
 
 // AuthenticateRequest check the request
-func AuthenticateRequest(request *http.Request) *errors.RestErr {
+func AuthenticateRequest(request *http.Request) resterrors.RestErr {
 	if request == nil {
 		return nil
 	}
@@ -85,7 +86,7 @@ func AuthenticateRequest(request *http.Request) *errors.RestErr {
 	}
 	at, err := getAccessToken(accessTokenID)
 	if err != nil {
-		if err.Status == http.StatusNotFound {
+		if err.Status() == http.StatusNotFound {
 			return nil
 		}
 		return err
@@ -103,22 +104,22 @@ func cleanRequest(request *http.Request) {
 	request.Header.Del(headerXCallerID)
 }
 
-func getAccessToken(accessTokenID string) (*accessToken, *errors.RestErr) {
-	response := oauthRestClient.Get(fmt.Sprintf("/oauth/accesstoken/:%s", accessTokenID))
+func getAccessToken(accessTokenID string) (*accessToken, resterrors.RestErr) {
+	response := oauthRestClient.Get(fmt.Sprintf("/oauth/accesstoken/%s", accessTokenID))
 	if response == nil || response.Response == nil {
-		return nil, errors.NewInternalServerError("invalid restclient response when trying to get access token")
+		return nil, resterrors.NewInternalServerError("invalid restclient response when trying to get access token", errors.New("database error"))
 	}
 	if response.StatusCode > 299 {
-		var restErr errors.RestErr
+		var restErr resterrors.RestErr
 		if err := json.Unmarshal(response.Bytes(), &restErr); err != nil {
 
-			return nil, errors.NewInternalServerError("invalid error interface when trying to get access token")
+			return nil, resterrors.NewInternalServerError("invalid error interface when trying to get access token", errors.New("database error"))
 		}
-		return nil, &restErr
+		return nil, restErr
 	}
 	var at accessToken
 	if err := json.Unmarshal(response.Bytes(), &at); err != nil {
-		return nil, errors.NewInternalServerError("error when trying to unmarshal access token response")
+		return nil, resterrors.NewInternalServerError("error when trying to unmarshal access token response", errors.New("database error"))
 	}
 	return &at, nil
 }
