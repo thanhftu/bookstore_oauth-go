@@ -107,19 +107,18 @@ func cleanRequest(request *http.Request) {
 func getAccessToken(accessTokenID string) (*accessToken, resterrors.RestErr) {
 	response := oauthRestClient.Get(fmt.Sprintf("/oauth/accesstoken/%s", accessTokenID))
 	if response == nil || response.Response == nil {
-		return nil, resterrors.NewInternalServerError("invalid restclient response when trying to get access token", errors.New("database error"))
+		return nil, resterrors.NewInternalServerError("invalid restclient response when trying to get access token", errors.New("netword timeout"))
 	}
 	if response.StatusCode > 299 {
-		var restErr resterrors.RestErr
-		if err := json.Unmarshal(response.Bytes(), &restErr); err != nil {
-
-			return nil, resterrors.NewInternalServerError("invalid error interface when trying to get access token", errors.New("database error"))
+		restErr, err := resterrors.NewRestErrorFromBytes(response.Bytes())
+		if err != nil {
+			return nil, resterrors.NewInternalServerError("invalid error interface when trying to get access token", err)
 		}
 		return nil, restErr
 	}
 	var at accessToken
 	if err := json.Unmarshal(response.Bytes(), &at); err != nil {
-		return nil, resterrors.NewInternalServerError("error when trying to unmarshal access token response", errors.New("database error"))
+		return nil, resterrors.NewInternalServerError("error when trying to unmarshal access token response", errors.New("error processing json"))
 	}
 	return &at, nil
 }
